@@ -1,5 +1,9 @@
 # csc420-project
 
+Youtube Presentation: 
+
+https://youtu.be/wJ3nLqt2oeQ
+
 This is our Paris obejct detection project
 
 This project is based on Facebook detectron research (https://github.com/facebookresearch/Detectron) using FPN(Feature Pyramid Network for Object Detection). 
