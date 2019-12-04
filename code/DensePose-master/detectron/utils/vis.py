@@ -396,7 +396,7 @@ def vis_one_image_opencv(
         if show_class:
             class_str = get_class_string(classes[i], score, dataset)
             im = vis_class(im, (bbox[0], bbox[1] - 2), class_str)
-			im = add_map_to_img(im, class_str)
+	    im = add_map_to_img(im, class_str)
 
         # show mask
         if segms is not None and len(segms) > i:
