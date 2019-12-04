@@ -58,27 +58,26 @@ landscape_coord = {"la_defense":[45,35,'/content/drive/My Drive/map feature/icon
           "saint_etienne":[543,839,'/content/drive/My Drive/map feature/icons/saint_etienne.jpg']}
 
 def add_icon_to_map(map_no_icon, icon_classes):
-  for icon_class in icon_classes:
-    icon_x, icon_y, icon_path = landscape_coord[icon_class]
-    icon_x_range, icon_y_range = int(map_no_icon.shape[0]//8), int(map_no_icon.shape[1]//8)
-    icon = cv2.resize(cv2.imread(icon_path),(icon_y_range,icon_x_range))
-    icon_x = max(0,icon_x-(int(icon_x_range/2)+1))
-    if icon_x+icon_x_range > map_no_icon.shape[0]:
-      icon_x = map_no_icon.shape[0]-icon_x_range
-    icon_y = max(0,icon_y-(int(icon_y_range/2)+1))
-    if icon_y+icon_y_range > map_no_icon.shape[1]:
-      icon_y = map_no_icon.shape[1]-icon_y_range
-    map_no_icon[icon_x:icon_x+icon_x_range,icon_y:icon_y+icon_y_range,:] = icon[:,:,:]
-
-  return map_no_icon
+    for icon_class in icon_classes:
+        icon_x, icon_y, icon_path = landscape_coord[icon_class]
+        icon_x_range, icon_y_range = int(map_no_icon.shape[0]//8), int(map_no_icon.shape[1]//8)
+        icon = cv2.resize(cv2.imread(icon_path),(icon_y_range,icon_x_range))
+        icon_x = max(0,icon_x-(int(icon_x_range/2)+1))
+        if icon_x+icon_x_range > map_no_icon.shape[0]:
+            icon_x = map_no_icon.shape[0]-icon_x_range
+        icon_y = max(0,icon_y-(int(icon_y_range/2)+1))
+        if icon_y+icon_y_range > map_no_icon.shape[1]:
+            icon_y = map_no_icon.shape[1]-icon_y_range
+        map_no_icon[icon_x:icon_x+icon_x_range,icon_y:icon_y+icon_y_range,:] = icon[:,:,:]
+    return map_no_icon
 
 def add_map_to_img(img, icon_classes):
-  map_no_icon = cv2.imread('/content/drive/My Drive/map feature/paris_map.jpg')
-  map_with_icon = add_icon_to_map(map_no_icon, icon_classes)
-  map2 = cv2.resize(map_with_icon, (int(img.shape[1]/4), int(img.shape[0]/4)))
-  start_x, start_y = img.shape[0]-map2.shape[0], img.shape[1]-map2.shape[1]
-  img[start_x:start_x+map2.shape[0], start_y:start_y+map2.shape[1],:] = map2[:,:,:]
-  return img
+    map_no_icon = cv2.imread('/content/drive/My Drive/map feature/paris_map.jpg')
+    map_with_icon = add_icon_to_map(map_no_icon, icon_classes)
+    map2 = cv2.resize(map_with_icon, (int(img.shape[1]/4), int(img.shape[0]/4)))
+    start_x, start_y = img.shape[0]-map2.shape[0], img.shape[1]-map2.shape[1]
+    img[start_x:start_x+map2.shape[0], start_y:start_y+map2.shape[1],:] = map2[:,:,:]
+    return img
 
 
 #filter feature
