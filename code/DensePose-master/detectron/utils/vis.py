@@ -14,7 +14,12 @@ from __future__ import unicode_literals
 
 import cv2
 import numpy as np
+from matplotlib import pyplot as plt
 import os
+from os.path import isfile, join
+import skimage
+from skimage import io, filters
+import glob
 
 import pycocotools.mask as mask_util
 
@@ -34,6 +39,171 @@ plt.rcParams['pdf.fonttype'] = 42  # For editing in Adobe Illustrator
 _GRAY = (218, 227, 218)
 _GREEN = (18, 127, 15)
 _WHITE = (255, 255, 255)
+
+
+#map feature
+landscape_coord = {"la_defense":[45,35,'/content/drive/My Drive/map feature/icons/la_defense.jpg'],
+          "triomphe":[228,436,'/content/drive/My Drive/map feature/icons/triomphe.jpg'],
+          "eiffel_tower":[434,420,'/content/drive/My Drive/map feature/icons/eiffel_tower.jpg'],
+          "invalides":[395,580,'/content/drive/My Drive/map feature/icons/invalides.jpg'],
+          "place_concord_fountain":[323,635,'/content/drive/My Drive/map feature/icons/de_la_place_concord.jpg'],
+          "place_concord_obelisk":[323,635,'/content/drive/My Drive/map feature/icons/de_la_place_concord.jpg'],
+          "sacrecoeur":[80,801,'/content/drive/My Drive/map feature/icons/sacrecoeur.jpg'],
+          "moulinrouge":[110,719,'/content/drive/My Drive/map feature/icons/moulinrouge.jpg'],
+          "palais_garnier":[250,713,'/content/drive/My Drive/map feature/icons/palais_garnier.jpg'],
+          "louvre":[380,760,'/content/drive/My Drive/map feature/icons/louvre.jpg'],
+          "pompidou":[382,871,'/content/drive/My Drive/map feature/icons/pompidou.jpg'],
+          "hotel_de_ville":[429,872,'/content/drive/My Drive/map feature/icons/hotel_de_ville.jpg'],
+          "notredame":[471,858,'/content/drive/My Drive/map feature/icons/notredame.jpg'],
+          "saint_etienne":[543,839,'/content/drive/My Drive/map feature/icons/saint_etienne.jpg']}
+
+def add_icon_to_map(map_no_icon, icon_classes):
+  for icon_class in icon_classes:
+    icon_x, icon_y, icon_path = landscape_coord[icon_class]
+    icon_x_range, icon_y_range = int(map_no_icon.shape[0]//8), int(map_no_icon.shape[1]//8)
+    icon = cv2.resize(cv2.imread(icon_path),(icon_y_range,icon_x_range))
+    icon_x = max(0,icon_x-(int(icon_x_range/2)+1))
+    if icon_x+icon_x_range > map_no_icon.shape[0]:
+      icon_x = map_no_icon.shape[0]-icon_x_range
+    icon_y = max(0,icon_y-(int(icon_y_range/2)+1))
+    if icon_y+icon_y_range > map_no_icon.shape[1]:
+      icon_y = map_no_icon.shape[1]-icon_y_range
+    map_no_icon[icon_x:icon_x+icon_x_range,icon_y:icon_y+icon_y_range,:] = icon[:,:,:]
+
+  return map_no_icon
+
+def add_map_to_img(img, icon_classes):
+  map_no_icon = cv2.imread('/content/drive/My Drive/map feature/paris_map.jpg')
+  map_with_icon = add_icon_to_map(map_no_icon, icon_classes)
+  map2 = cv2.resize(map_with_icon, (int(img.shape[1]/4), int(img.shape[0]/4)))
+  start_x, start_y = img.shape[0]-map2.shape[0], img.shape[1]-map2.shape[1]
+  img[start_x:start_x+map2.shape[0], start_y:start_y+map2.shape[1],:] = map2[:,:,:]
+  return img
+
+
+#filter feature
+def split_image_into_channels(image):
+    """Look at each image separately"""
+    red_channel = image[:, :, 0]
+    green_channel = image[:, :, 1]
+    blue_channel = image[:, :, 2]
+    return red_channel, green_channel, blue_channel
+
+def channel_adjust(channel, values):
+    # preserve the original size, so we can reconstruct at the end
+    orig_size = channel.shape
+    # flatten the image into a single array
+    flat_channel = channel.flatten()
+
+    # this magical numpy function takes the values in flat_channel
+    # and maps it from its range in [0, 1] to its new squeezed and
+    # stretched range
+    adjusted = np.interp(flat_channel, np.linspace(0, 255, len(values)), values)
+
+    # put back into the original image shape
+    return adjusted.reshape(orig_size)
+
+def sharpen(image, a, b):
+    """Sharpening an image: Blur and then subtract from original"""
+    blurred = skimage.filters.gaussian(image, sigma=1, multichannel=True)
+    sharper = np.clip(image * a - blurred * b, 0, 255)
+    return sharper
+
+def merge_channels(red, green, blue):
+    """Merge channels back into an image"""
+    return np.stack([red, green, blue], axis=2)
+
+def insta_like(image,instafilter):
+    # if instafilter == 'gotham':
+    #     original_image = skimage.io.imread(image)
+
+    #     original_image = skimage.util.img_as_float(original_image)
+    #     r, g, b = split_image_into_channels(original_image)
+    #     r_boost_lower = channel_adjust(r, [0, 0.05, 0.1, 0.2, 0.3, 0.5, 0.7, 0.8, 0.9, 0.95, 1.0])
+    #     r_boost_img = merge_channels(r_boost_lower, g, b)
+    #     bluer_blacks = merge_channels(r_boost_lower, g, np.clip(b + 0.03, 0, 1.0))
+    #     sharper = sharpen(bluer_blacks, 1.3, 0.3)
+    #     r, g, b = split_image_into_channels(sharper)
+    #     b_adjusted = channel_adjust(b, [0, 0.047, 0.118, 0.251, 0.318, 0.392, 0.42, 0.439, 0.475, 0.561, 0.58, 0.627, 0.671, 0.733, 0.847, 0.925, 1])
+    #     gotham = merge_channels(r, g, b_adjusted) * 255
+    #     gotham = gotham.astype(np.uint8)
+    #     return gotham
+
+    if instafilter == 'gotham':
+        image = cv2.imread(image,1)
+        b, g, r = cv2.split(image)
+        image = np.stack([r, g, b], axis=2)
+        r_boost_lower = channel_adjust(r, [0, 0.05 * 255, 0.1 * 255, 0.2 * 255, 0.3 * 255, 0.5 * 255, 0.7 * 255, 0.8 * 255, 0.9 * 255, 0.95 * 255, 1.0 * 255])
+        # 2.Make the blacks a little bluer
+        bluer_blacks = np.stack([r_boost_lower, g, np.clip(b + 0.1 * 255, 0, 255)], axis=2)
+        # 3.A small sharpening
+        sharper = sharpen(bluer_blacks, 1.3, 0.3)
+        print(sharper[0])
+        r, g, b = cv2.split(sharper)
+        b_adjusted = channel_adjust(b, [0, 0.047 * 255, 0.118 * 255, 0.251 * 255, 0.318 * 255, 0.392 * 255, 0.42 * 255, 0.439 * 255, 0.475 * 255, 0.561 * 255, 0.58 * 255, 0.627 * 255, 0.671 * 255, 0.733 * 255, 0.847 * 255, 0.925 * 255, 255])
+        
+        # 4.A boost in blue channel for lower mid-tones and decrease in blue channel for upper mid-tones.
+        gotham = np.stack([r, g, b_adjusted], axis=2)
+        # gotham = skimage.img_as_ubyte(gotham)
+        gotham = gotham.astype(np.uint8)
+        return gotham
+
+    elif instafilter == 'vintage':
+        im = cv2.imread(image, 1)
+        rows, cols = im.shape[:2]
+        kernel_x = cv2.getGaussianKernel(cols, 300)
+        kernel_y = cv2.getGaussianKernel(rows, 300)
+        kernel = kernel_y * kernel_x.T
+        filter = 255 * kernel / np.linalg.norm(kernel)
+        vintage_im = np.copy(im)
+        sharper = sharpen(vintage_im, 1.3, 0.3)
+        # for each channel in the input image, we will apply the above filter
+        for i in range(3):
+            vintage_im[:,:,i] = vintage_im[:,:,i] * filter
+
+        vintage_im += 20
+
+        # h, s, v = cv2.split(vintage_im)
+        # v += 50
+        # vintage_im = cv2.merge((h, s, v))
+        return vintage_im.astype(np.uint8)
+    
+    elif instafilter == 'inkwell':
+        #The Greyscale Image of the original one
+        inkwell = cv2.imread(image,0)
+        #b, g, r = cv2.split(inkwell)
+        #inkwell = np.stack([r, g, b], axis=2)
+        return inkwell
+    
+    elif instafilter == 'poprocket':
+        poprocket = cv2.imread(image,1)
+        poprocket[:,:,2] = poprocket[:,:,2] * 0.18
+        poprocket[:,:,1] = poprocket[:,:,1] * 0.1
+        #poprocket = poprocket * 0.0140  ##contrast = image * x_contrast
+        poprocket = poprocket + 40 ##bright = image_contrast + x_bright
+        return poprocket
+
+    elif instafilter == 'walden':
+        walden = cv2.imread(image,1)
+        walden[:,:,2] = walden[:,:,2] * 1.212
+        
+        return walden
+
+
+    elif instafilter == 'canny':
+        image = cv2.imread(image,0)
+        edges = cv2.Canny(image,100,300)
+        return edges
+    
+    elif instafilter == 'hefe':
+        hefe = cv2.imread(image,1)
+        hefe[:,:,2] = hefe[:,:,2] * 1
+        hefe[:,:,1] = hefe[:,:,1] * 2
+        hefe[:,:,0] = hefe[:,:,0] * 1.8
+        hefe1 = hefe * 1.0 
+        hefe2 = hefe1 + 20
+        return hefe2
+
 
 
 def kp_connections(keypoints):
@@ -226,6 +396,7 @@ def vis_one_image_opencv(
         if show_class:
             class_str = get_class_string(classes[i], score, dataset)
             im = vis_class(im, (bbox[0], bbox[1] - 2), class_str)
+			im = add_map_to_img(im, class_str)
 
         # show mask
         if segms is not None and len(segms) > i:
@@ -237,6 +408,9 @@ def vis_one_image_opencv(
         if keypoints is not None and len(keypoints) > i:
             im = vis_keypoints(im, keypoints[i], kp_thresh)
 
+     
+    # im = insta_like(im, 'hefe')
+    im = insta_like(im, 'canny')	
     return im
 
 
